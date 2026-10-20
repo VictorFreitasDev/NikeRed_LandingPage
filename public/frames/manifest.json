@@ -1,8 +1,8 @@
 {
-  "videoSource": "Man_walking_wearing_sneakers_1080p_20261020155925.mp4",
-  "frameCount": 239,
+  "videoSource": "frames/*.png",
+  "frameCount": 55,
   "fps": 24,
-  "duration": 9.96,
+  "duration": "2.29",
   "desktop": {
     "width": 1440,
     "height": 810,
@@ -21,5 +21,5 @@
     "poster": "frames/mobile/poster.webp",
     "posterFinal": "frames/mobile/poster-final.webp"
   },
-  "generatedAt": "2026-10-20T19:28:15.805Z"
+  "generatedAt": "2026-10-20T20:34:44.465Z"
 }

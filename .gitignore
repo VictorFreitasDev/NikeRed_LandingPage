@@ -42,3 +42,4 @@ temp_inspect
 *.mov
 *.avi
 !public/video.mp4
+frames/
