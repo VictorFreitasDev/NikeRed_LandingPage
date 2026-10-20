@@ -32,14 +32,17 @@ export class FrameSequenceManager {
   private posterImage: HTMLImageElement | null = null;
   private isPosterLoaded: boolean = false;
 
-  // Listeners de progresso
+  // Listeners de progresso e disponibilidade
   private onReadyCallbacks: Set<() => void> = new Set();
   private onProgressCallbacks: Set<(loaded: number, total: number) => void> = new Set();
+  private onFrameLoadedCallbacks: Set<(index: number) => void> = new Set();
 
   constructor(manifest: FramesManifest, variant: DeviceVariant, basePath: string = '') {
     this.manifest = manifest;
     this.variant = variant;
-    this.basePath = basePath.endsWith('/') || basePath === '' ? basePath : `${basePath}/`;
+    // Assegura caminho de base normalizado sem duplicação de barras
+    const cleanBase = basePath.endsWith('/') || basePath === '' ? basePath : `${basePath}/`;
+    this.basePath = cleanBase === './' ? '' : cleanBase;
     this.totalFrames = manifest.frameCount;
 
     this.loadPoster();
@@ -246,6 +249,7 @@ export class FrameSequenceManager {
 
         this.putCache(index, img);
         this.notifyProgress();
+        this.notifyFrameLoaded(index);
 
         if (this.cache.size >= 1) {
           this.notifyReady();
@@ -311,6 +315,19 @@ export class FrameSequenceManager {
     return () => this.onProgressCallbacks.delete(cb);
   }
 
+  public onFrameLoaded(cb: (index: number) => void): () => void {
+    this.onFrameLoadedCallbacks.add(cb);
+    return () => this.onFrameLoadedCallbacks.delete(cb);
+  }
+
+  private notifyFrameLoaded(index: number): void {
+    for (const cb of this.onFrameLoadedCallbacks) {
+      try {
+        cb(index);
+      } catch {}
+    }
+  }
+
   private notifyReady(): void {
     for (const cb of this.onReadyCallbacks) {
       try {
@@ -331,6 +348,8 @@ export class FrameSequenceManager {
     this.clearCache();
     this.onReadyCallbacks.clear();
     this.onProgressCallbacks.clear();
+    this.onFrameLoadedCallbacks.clear();
     this.posterImage = null;
   }
 }
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ArrowDown, ExternalLink } from 'lucide-react';
+import { ArrowDown, ExternalLink, Play, Sliders } from 'lucide-react';
 import manifestData from '../../../public/frames/manifest.json';
 import { FramesManifest, DeviceVariant } from '../../types/frames';
 import { PRODUCT_DATA } from '../../config/product';
@@ -11,16 +11,25 @@ const manifest = manifestData as unknown as FramesManifest;
 export const HeroCanvas: React.FC = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const managerRef = useRef<FrameSequenceManager | null>(null);
 
-  // Refs de animação direta (sem re-render do React durante o scroll)
+  // Modo de visualização: 'scroll' (controlado por scroll) ou 'loop' (vídeo contínuo)
+  const [playbackMode, setPlaybackMode] = useState<'scroll' | 'loop'>('scroll');
+  const [isCanvasDrawn, setIsCanvasDrawn] = useState(false);
+
+  // Base path seguro
+  const basePath = import.meta.env.BASE_URL && import.meta.env.BASE_URL !== './' ? import.meta.env.BASE_URL : '';
+  const cleanBase = basePath.endsWith('/') || basePath === '' ? basePath : `${basePath}/`;
+
+  // Refs de controle de performance (sem re-render no scroll)
   const currentFrameRef = useRef<number>(0);
   const targetFrameRef = useRef<number>(0);
   const lastScrollTopRef = useRef<number>(0);
   const isRafActiveRef = useRef<boolean>(false);
   const rafIdRef = useRef<number | null>(null);
 
-  // Refs dos painéis de narrativa sobreposta para manipulação direta de estilo
+  // Refs dos painéis de narrativa sobreposta
   const phase1Ref = useRef<HTMLDivElement>(null);
   const phase2Ref = useRef<HTMLDivElement>(null);
   const phase3Ref = useRef<HTMLDivElement>(null);
@@ -28,7 +37,7 @@ export const HeroCanvas: React.FC = () => {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const frameIndicatorRef = useRef<HTMLSpanElement>(null);
 
-  // Estados apenas para flags estruturais
+  // Estados estruturais
   const [deviceVariant, setDeviceVariant] = useState<DeviceVariant>('desktop');
   const [isReady, setIsReady] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -59,53 +68,8 @@ export const HeroCanvas: React.FC = () => {
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
 
-  // Inicializar FrameSequenceManager
-  useEffect(() => {
-    const basePath = import.meta.env.BASE_URL || './';
-    const manager = new FrameSequenceManager(manifest, deviceVariant, basePath);
-    managerRef.current = manager;
-
-    const unsubscribeReady = manager.onReady(() => {
-      setIsReady(true);
-      requestRender();
-    });
-
-    manager.startInitialLoad();
-
-    return () => {
-      unsubscribeReady();
-      manager.destroy();
-      managerRef.current = null;
-    };
-  }, []);
-
-  // Ajustar dimensões do Canvas e DPI
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2); // Limita DPR a 2 para controle de memória
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-    }
-
-    renderCanvasFrame(currentFrameRef.current);
-  }, []);
-
-  useEffect(() => {
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    return () => window.removeEventListener('resize', resizeCanvas);
-  }, [resizeCanvas]);
-
   // Função principal de desenho no Canvas 2D
-  const renderCanvasFrame = (frameIndex: number) => {
+  const renderCanvasFrame = useCallback((frameIndex: number) => {
     const canvas = canvasRef.current;
     const manager = managerRef.current;
     if (!canvas || !manager) return;
@@ -119,7 +83,7 @@ export const HeroCanvas: React.FC = () => {
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
 
-    // Calcular enquadramento "cover" com ponto focal inteligente
+    // Calcular enquadramento "cover" com ponto focal no calçado
     const imgRatio = img.naturalWidth / img.naturalHeight;
     const canvasRatio = canvasWidth / canvasHeight;
 
@@ -129,18 +93,16 @@ export const HeroCanvas: React.FC = () => {
     let offsetY = 0;
 
     if (canvasRatio > imgRatio) {
-      // Canvas é mais largo que a imagem
       drawHeight = canvasWidth / imgRatio;
-      offsetY = (canvasHeight - drawHeight) * 0.5; // Centraliza verticalmente
+      offsetY = (canvasHeight - drawHeight) * 0.5;
     } else {
-      // Canvas é mais alto que a imagem (mobile ou telas estreitas)
       drawWidth = canvasHeight * imgRatio;
-      // No mobile, centralizar no calçado (que se move ligeiramente no centro-baixo)
       offsetX = (canvasWidth - drawWidth) * 0.5;
     }
 
     ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-  };
+    setIsCanvasDrawn(true);
+  }, []);
 
   // Loop de renderização suave via requestAnimationFrame
   const requestRender = useCallback(() => {
@@ -152,29 +114,77 @@ export const HeroCanvas: React.FC = () => {
       const target = targetFrameRef.current;
       const current = currentFrameRef.current;
 
-      // Interpolação suave quando há diferença
       if (Math.abs(target - current) > 0.05) {
-        // Passo de suavização proporcional
         const next = current + (target - current) * 0.35;
         currentFrameRef.current = Math.abs(target - next) < 0.05 ? target : next;
         renderCanvasFrame(Math.round(currentFrameRef.current));
-        requestRender(); // continua até convergir
+        requestRender();
       } else {
         currentFrameRef.current = target;
         renderCanvasFrame(Math.round(target));
       }
 
-      // Atualiza indicador de frame no HUD sem re-renderizar React
       if (frameIndicatorRef.current) {
         const frameNum = Math.min(manifest.frameCount, Math.max(1, Math.round(currentFrameRef.current) + 1));
         frameIndicatorRef.current.textContent = `${String(frameNum).padStart(3, '0')} / ${manifest.frameCount}`;
       }
     });
-  }, []);
+  }, [renderCanvasFrame]);
+
+  // Inicializar FrameSequenceManager e listeners reativos
+  useEffect(() => {
+    const manager = new FrameSequenceManager(manifest, deviceVariant, cleanBase);
+    managerRef.current = manager;
+
+    const unsubscribeReady = manager.onReady(() => {
+      setIsReady(true);
+      requestRender();
+    });
+
+    // Quando um frame termina de carregar, se for o frame atual, força renderização imediata
+    const unsubscribeFrame = manager.onFrameLoaded((loadedIndex) => {
+      if (Math.abs(loadedIndex - targetFrameRef.current) <= 2) {
+        requestRender();
+      }
+    });
+
+    manager.startInitialLoad();
+
+    return () => {
+      unsubscribeReady();
+      unsubscribeFrame();
+      manager.destroy();
+      managerRef.current = null;
+    };
+  }, [deviceVariant, cleanBase, requestRender]);
+
+  // Ajustar dimensões do Canvas e DPI
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+    }
+
+    renderCanvasFrame(currentFrameRef.current);
+  }, [renderCanvasFrame]);
+
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    return () => window.removeEventListener('resize', resizeCanvas);
+  }, [resizeCanvas]);
 
   // Atualizar as narrativas sobrepostas (0-25%, 25-45%, 45-70%, 70-100%)
   const updateOverlays = (progress: number) => {
-    // Helper de opacidade e translação baseado no intervalo [start, peakStart, peakEnd, end]
     const calcPhase = (start: number, peakStart: number, peakEnd: number, end: number) => {
       if (progress < start || progress > end) return { opacity: 0, translateY: 24, pointerEvents: 'none' };
       let opacity = 1;
@@ -197,12 +207,10 @@ export const HeroCanvas: React.FC = () => {
       };
     };
 
-    // Barra de progresso da seção
     if (progressBarRef.current) {
       progressBarRef.current.style.transform = `scaleX(${progress})`;
     }
 
-    // Fase 1: 0% a 25% (Apresentação do modelo e título)
     if (phase1Ref.current) {
       const p = calcPhase(-0.05, 0.02, 0.20, 0.28);
       phase1Ref.current.style.opacity = `${p.opacity}`;
@@ -210,7 +218,6 @@ export const HeroCanvas: React.FC = () => {
       phase1Ref.current.style.pointerEvents = p.pointerEvents;
     }
 
-    // Fase 2: 25% a 45% (O impacto e a fumaça bordô)
     if (phase2Ref.current) {
       const p = calcPhase(0.24, 0.30, 0.40, 0.47);
       phase2Ref.current.style.opacity = `${p.opacity}`;
@@ -218,7 +225,6 @@ export const HeroCanvas: React.FC = () => {
       phase2Ref.current.style.pointerEvents = p.pointerEvents;
     }
 
-    // Fase 3: 45% a 70% (Textura e acabamento pony hair)
     if (phase3Ref.current) {
       const p = calcPhase(0.44, 0.50, 0.65, 0.72);
       phase3Ref.current.style.opacity = `${p.opacity}`;
@@ -226,7 +232,6 @@ export const HeroCanvas: React.FC = () => {
       phase3Ref.current.style.pointerEvents = p.pointerEvents;
     }
 
-    // Fase 4: 70% a 100% (Revelação clara do tênis e CTA)
     if (phase4Ref.current) {
       const p = calcPhase(0.68, 0.76, 1.05, 1.15);
       phase4Ref.current.style.opacity = `${p.opacity}`;
@@ -248,32 +253,35 @@ export const HeroCanvas: React.FC = () => {
 
       if (scrollableDistance <= 0) return;
 
-      // Progresso normalizado 0 a 1
       const rawProgress = -rect.top / scrollableDistance;
       const progress = Math.max(0, Math.min(1, rawProgress));
 
-      // Determinar direção
       const currentScrollTop = window.scrollY || document.documentElement.scrollTop;
       const direction = currentScrollTop >= lastScrollTopRef.current ? 'forward' : 'backward';
       lastScrollTopRef.current = currentScrollTop;
 
-      // Mapear para índice de frame real
       const totalFrames = manifest.frameCount;
       const targetIndex = Math.round(progress * (totalFrames - 1));
       targetFrameRef.current = targetIndex;
 
-      // Solicitar prefetch inteligente na direção do movimento
+      // Sincronizar também o vídeo nativo caso esteja ativo ou em pausa de scroll
+      if (videoRef.current && playbackMode === 'scroll') {
+        const videoDuration = manifest.duration || 9.96;
+        if (!isNaN(videoRef.current.duration)) {
+          videoRef.current.currentTime = progress * videoDuration;
+        }
+      }
+
       if (managerRef.current) {
         managerRef.current.preloadSurrounding(targetIndex, direction);
       }
 
-      // Atualizar overlays e disparar render
       updateOverlays(progress);
       requestRender();
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Execução inicial
+    handleScroll();
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
@@ -281,15 +289,32 @@ export const HeroCanvas: React.FC = () => {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, [requestRender]);
+  }, [requestRender, playbackMode]);
 
-  // Função para avançar suavemente pelo botão ou teclado
+  // Alternar entre modo scroll e reprodução contínua do vídeo
+  const togglePlaybackMode = () => {
+    setPlaybackMode((prev) => {
+      const next = prev === 'scroll' ? 'loop' : 'scroll';
+      if (videoRef.current) {
+        if (next === 'loop') {
+          videoRef.current.play().catch(() => {});
+        } else {
+          videoRef.current.pause();
+        }
+      }
+      return next;
+    });
+  };
+
   const handleScrollToNextSection = () => {
     const section = sectionRef.current;
     if (!section) return;
     const targetY = section.offsetTop + section.offsetHeight;
     window.scrollTo({ top: targetY, behavior: 'smooth' });
   };
+
+  const posterSrc = `${cleanBase}frames/${deviceVariant}/poster.webp`;
+  const videoSrc = `${cleanBase}video.mp4`;
 
   return (
     <section
@@ -299,12 +324,42 @@ export const HeroCanvas: React.FC = () => {
       aria-label="Experiência interativa do Nike Air Force 1 Low QS Team Red"
     >
       <div className={styles.stickyWrapper}>
-        {/* Canvas de alta performance */}
-        <canvas
-          ref={canvasRef}
-          className={styles.heroCanvas}
-          aria-hidden="true"
-        />
+        {/* =========================================================================
+            CAMADA VISUAL DE FUNDO COM TRIPLA GARANTIA:
+            1. Poster estático imediato (milissegundo 0)
+            2. Vídeo nativo mp4 de 8 segundos com fumaça bordô
+            3. Canvas 2D nativo desenhando os 239 frames no scroll
+           ========================================================================= */}
+        <div className={styles.mediaContainer}>
+          {/* 1. Imagem Poster Instantânea */}
+          <img
+            src={posterSrc}
+            alt="Cena urbana noturna do Nike Air Force 1 Low QS Team Red"
+            className={styles.posterFallback}
+            aria-hidden="true"
+          />
+
+          {/* 2. Elemento de Vídeo Real no Fundo */}
+          <video
+            ref={videoRef}
+            className={`${styles.heroVideo} ${playbackMode === 'loop' ? styles.heroVideoActive : ''}`}
+            src={videoSrc}
+            poster={posterSrc}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          />
+
+          {/* 3. Canvas 2D Sincronizado pelo Scroll */}
+          <canvas
+            ref={canvasRef}
+            className={`${styles.heroCanvas} ${isCanvasDrawn && playbackMode === 'scroll' ? styles.heroCanvasVisible : ''}`}
+            aria-hidden="true"
+          />
+        </div>
 
         {/* Gradientes sutis para contraste e legibilidade editorial */}
         <div className={styles.vignetteTop} />
@@ -316,21 +371,42 @@ export const HeroCanvas: React.FC = () => {
           <div ref={progressBarRef} className={styles.progressBarFill} />
         </div>
 
-        {/* HUD e Indicador de Frame Técnico */}
-        <div className={styles.hudOverlay} aria-hidden="true">
+        {/* HUD Técnico e Controles Interativos */}
+        <div className={styles.hudOverlay}>
+          <button
+            type="button"
+            onClick={togglePlaybackMode}
+            className={styles.modeToggleBtn}
+            aria-label={`Alternar modo de visualização. Modo atual: ${playbackMode === 'scroll' ? 'Scroll Interativo' : 'Vídeo em Loop'}`}
+            title="Clique para alternar entre Scroll Interativo e Vídeo Contínuo"
+          >
+            {playbackMode === 'scroll' ? (
+              <>
+                <Sliders size={13} className={styles.modeIcon} />
+                <span>MODO SCROLL 24FPS</span>
+              </>
+            ) : (
+              <>
+                <Play size={13} className={styles.modeIcon} />
+                <span>VÍDEO EM LOOP</span>
+              </>
+            )}
+          </button>
+
           <div className={styles.hudBadge}>
             <span className={`${styles.hudDot} ${!isReady ? styles.hudDotLoading : ''}`} />
             <span className={styles.hudLabel}>
-              {isReady ? 'SCROLL SEQUENCE 24FPS' : 'CARREGANDO SEQUÊNCIA...'}
+              {isReady ? 'SYNC ATIVO' : 'CARREGANDO...'}
             </span>
           </div>
-          <div className={styles.hudCounter}>
+
+          <div className={styles.hudCounter} aria-label="Contador de quadros">
             <span ref={frameIndicatorRef}>001 / {manifest.frameCount}</span>
           </div>
         </div>
 
         {/* =========================================================================
-            NARRATIVA SOBREPOSTA (DOM Semântico Acessível com Transições em GPU)
+            NARRATIVA SOBREPOSTA
            ========================================================================= */}
 
         {/* Fase 1: 0% a 25% - Título Principal e Apresentação do Modelo */}
@@ -351,7 +427,7 @@ export const HeroCanvas: React.FC = () => {
             <span className={styles.scrollMouse}>
               <span className={styles.scrollWheel} />
             </span>
-            <span className={styles.scrollText}>Role para iniciar a sequência</span>
+            <span className={styles.scrollText}>Role para interagir com o vídeo</span>
           </div>
         </div>
 
@@ -418,7 +494,7 @@ export const HeroCanvas: React.FC = () => {
         {/* Fallback Acessível para Modo de Movimento Reduzido */}
         {reducedMotion && (
           <div className={styles.reducedMotionNotice} role="status">
-            <span>Modo de movimento reduzido ativo. O vídeo está em pausa representativa.</span>
+            <span>Modo de movimento reduzido ativo. O vídeo está em pausa estática.</span>
           </div>
         )}
       </div>

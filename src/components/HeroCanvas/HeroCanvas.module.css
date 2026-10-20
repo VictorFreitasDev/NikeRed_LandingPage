@@ -18,14 +18,53 @@
   background-color: var(--color-bg-base);
 }
 
-.heroCanvas {
+.mediaContainer {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.posterFallback {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   z-index: 1;
+}
+
+.heroVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+.heroCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 250ms ease;
+}
+
+.heroCanvasVisible {
+  opacity: 1;
+}
+
+.heroVideoActive {
+  opacity: 1 !important;
+  z-index: 4;
 }
 
 /* Vinhetas e Gradientes de Contraste */
@@ -86,15 +125,49 @@
   right: var(--gutter-mobile);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  z-index: 20;
-  pointer-events: none;
+  gap: 0.75rem;
+  z-index: 25;
+  pointer-events: auto;
 }
 
 @media (min-width: 768px) {
   .hudOverlay {
     right: var(--gutter-desktop);
+    gap: 1rem;
   }
+}
+
+.modeToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(22, 22, 28, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.modeToggleBtn:hover {
+  background: var(--color-team-red);
+  border-color: var(--color-team-red-bright);
+}
+
+.modeIcon {
+  color: var(--color-team-red-bright);
+}
+
+.modeToggleBtn:hover .modeIcon {
+  color: var(--color-text-primary);
 }
 
 .hudBadge {

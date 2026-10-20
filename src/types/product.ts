@@ -34,3 +34,4 @@ export interface ProductConfig {
     detailsQuote: string;
   };
 }
+

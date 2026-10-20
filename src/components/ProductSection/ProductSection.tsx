@@ -112,3 +112,4 @@ export const ProductSection: React.FC = () => {
     </section>
   );
 };
+

@@ -26,3 +26,4 @@ export interface FrameLoadStatus {
   isInitialReady: boolean;
   isComplete: boolean;
 }
+

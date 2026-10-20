@@ -73,3 +73,4 @@ export const PRODUCT_DATA: ProductConfig = {
       'Uma expressão de luxo e rua. O clássico definitivo ganha textura viva e atitude monocromática.',
   },
 };
+
