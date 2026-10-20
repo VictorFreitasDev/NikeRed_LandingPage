@@ -1,0 +1,271 @@
+.section {
+  position: relative;
+  padding-block: 6rem 8rem;
+  background-color: var(--color-bg-base);
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (min-width: 768px) {
+  .section {
+    padding-block: 8rem 10rem;
+  }
+}
+
+.galleryHeader {
+  max-width: 800px;
+  margin-bottom: 4rem;
+}
+
+.tagWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.tagNumber {
+  font-family: var(--font-display-condensed);
+  font-size: 1.25rem;
+  color: var(--color-team-red-bright);
+}
+
+.tagTitle {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  font-family: var(--font-display-condensed);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin-bottom: 1.25rem;
+}
+
+.accentText {
+  color: var(--color-team-red-bright);
+}
+
+.sectionSubtitle {
+  font-size: clamp(0.9375rem, 1.4vw, 1.125rem);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* Grid Editorial */
+.galleryGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .galleryGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 3rem;
+  }
+
+  .galleryCardFeatured {
+    grid-column: span 2;
+  }
+}
+
+.galleryCard {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.galleryCard:hover {
+  border-color: var(--border-red);
+}
+
+.imageWrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: var(--color-bg-elevated);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.galleryCard:hover .image {
+  transform: scale(1.03);
+}
+
+.zoomButton {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  background-color: rgba(10, 10, 13, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  color: var(--color-text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 2px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.galleryCard:hover .zoomButton,
+.zoomButton:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.zoomButton:hover {
+  background-color: var(--color-team-red);
+  border-color: var(--color-team-red-bright);
+}
+
+.caption {
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.captionMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.captionIndex {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--color-team-red-bright);
+}
+
+.captionTitle {
+  font-family: var(--font-display-condensed);
+  font-size: 1.5rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+.captionDescription {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* Lightbox Modal */
+.lightboxBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background-color: rgba(5, 5, 7, 0.94);
+  backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lightboxContent {
+  width: 100%;
+  max-width: 1100px;
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9);
+}
+
+.lightboxMedia {
+  width: 100%;
+  max-height: 70vh;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightboxImage {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.lightboxInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 2rem;
+  background-color: var(--color-bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  gap: 1.5rem;
+}
+
+.lightboxTitle {
+  font-family: var(--font-display-condensed);
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.lightboxCaption {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.lightboxControls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.controlBtn, .closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--color-text-primary);
+  transition: all var(--transition-fast);
+}
+
+.controlBtn:hover, .closeBtn:hover {
+  background-color: var(--color-team-red);
+  border-color: var(--color-team-red-bright);
+}

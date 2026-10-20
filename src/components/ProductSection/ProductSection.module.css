@@ -1,0 +1,257 @@
+.section {
+  position: relative;
+  padding-block: 6rem 8rem;
+  background-color: var(--color-bg-base);
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (min-width: 768px) {
+  .section {
+    padding-block: 8rem 10rem;
+  }
+}
+
+.productCard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3.5rem;
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 2rem;
+  box-shadow: var(--shadow-editorial);
+}
+
+@media (min-width: 1024px) {
+  .productCard {
+    grid-template-columns: 1.1fr 1fr;
+    padding: 3.5rem;
+    gap: 4rem;
+  }
+}
+
+/* Coluna Visual */
+.visualCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.imageWrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.productImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.badgeEdition {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  padding: 0.4rem 0.8rem;
+  background-color: rgba(10, 10, 14, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-red);
+  color: var(--color-team-red-bright);
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+.productMetaList {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .productMetaList {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metaLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+
+.metaValue {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* Coluna de Informações */
+.infoCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.infoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-team-red-bright);
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-team-red-bright);
+}
+
+.productName {
+  font-family: var(--font-display-condensed);
+  font-size: clamp(2.8rem, 5vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.productEdition {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 2rem;
+}
+
+/* Tabela de Especificações */
+.specsTable {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-subtle);
+  margin-bottom: 2rem;
+}
+
+.specRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-block: 0.85rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.875rem;
+}
+
+.specKey {
+  color: var(--color-text-secondary);
+}
+
+.specVal {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.specValSku {
+  font-family: monospace;
+  color: var(--color-team-red-bright);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: 0.05em;
+}
+
+/* Aviso de Transparência */
+.transparencyNotice {
+  display: flex;
+  gap: 0.85rem;
+  padding: 1rem 1.25rem;
+  background-color: rgba(22, 22, 28, 0.75);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--color-team-red);
+  border-radius: 4px;
+  margin-bottom: 2.25rem;
+}
+
+.noticeIcon {
+  color: var(--color-team-red-bright);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.noticeText {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* Área de Ação */
+.actionArea {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: auto;
+}
+
+.officialBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.15rem 2rem;
+  background-color: var(--color-team-red);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  border: 1px solid var(--color-team-red-bright);
+  box-shadow: 0 4px 20px rgba(122, 17, 38, 0.45);
+  transition: all var(--transition-fast);
+}
+
+.officialBtn:hover {
+  background-color: var(--color-team-red-bright);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(158, 23, 50, 0.65);
+}
+
+.assuranceList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.assuranceItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.assuranceIcon {
+  color: var(--color-team-red-bright);
+  flex-shrink: 0;
+}
