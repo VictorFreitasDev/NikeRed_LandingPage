@@ -1,0 +1,25 @@
+{
+  "videoSource": "Man_walking_wearing_sneakers_1080p_20261020155925.mp4",
+  "frameCount": 239,
+  "fps": 24,
+  "duration": 9.96,
+  "desktop": {
+    "width": 1440,
+    "height": 810,
+    "aspectRatio": 1.7777777777777777,
+    "folder": "frames/desktop",
+    "pattern": "frame_%03d.webp",
+    "poster": "frames/desktop/poster.webp",
+    "posterFinal": "frames/desktop/poster-final.webp"
+  },
+  "mobile": {
+    "width": 720,
+    "height": 1280,
+    "aspectRatio": 0.5625,
+    "folder": "frames/mobile",
+    "pattern": "frame_%03d.webp",
+    "poster": "frames/mobile/poster.webp",
+    "posterFinal": "frames/mobile/poster-final.webp"
+  },
+  "generatedAt": "2026-10-20T19:28:15.805Z"
+}
