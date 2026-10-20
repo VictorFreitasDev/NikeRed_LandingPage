@@ -135,3 +135,4 @@ O arquivo `vite.config.ts` está configurado com suporte à variável `VITE_BASE
 ## 👨‍💻 Autor
 
 Desenvolvido com foco em estética streetwear, performance web e fidelidade de produto por **Victor Freitas**.
+

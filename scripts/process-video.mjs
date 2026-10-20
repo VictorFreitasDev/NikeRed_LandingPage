@@ -221,3 +221,4 @@ main().catch((err) => {
   console.error('\n❌ Erro no processamento:', err);
   process.exit(1);
 });
+
