@@ -1,35 +1,25 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ArrowDown, ExternalLink, Play, Sliders } from 'lucide-react';
+import { ArrowDown, ExternalLink } from 'lucide-react';
 import manifestData from '../../../public/frames/manifest.json';
 import { FramesManifest, DeviceVariant } from '../../types/frames';
 import { PRODUCT_DATA } from '../../config/product';
-import { FrameSequenceManager } from '../../utils/frameLoader';
 import styles from './HeroCanvas.module.css';
 
 const manifest = manifestData as unknown as FramesManifest;
+const TOTAL_FRAMES = manifest.frameCount; // 239 frames reais do vídeo
 
 export const HeroCanvas: React.FC = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const managerRef = useRef<FrameSequenceManager | null>(null);
 
-  // Modo de visualização: 'scroll' (controlado por scroll) ou 'loop' (vídeo contínuo)
-  const [playbackMode, setPlaybackMode] = useState<'scroll' | 'loop'>('scroll');
-  const [isCanvasDrawn, setIsCanvasDrawn] = useState(false);
-
-  // Base path seguro
-  const basePath = import.meta.env.BASE_URL && import.meta.env.BASE_URL !== './' ? import.meta.env.BASE_URL : '';
-  const cleanBase = basePath.endsWith('/') || basePath === '' ? basePath : `${basePath}/`;
-
-  // Refs de controle de performance (sem re-render no scroll)
+  // Armazenamento em memória dos objetos Image dos frames
+  const framesCacheRef = useRef<(HTMLImageElement | null)[]>(new Array(TOTAL_FRAMES).fill(null));
   const currentFrameRef = useRef<number>(0);
   const targetFrameRef = useRef<number>(0);
-  const lastScrollTopRef = useRef<number>(0);
   const isRafActiveRef = useRef<boolean>(false);
   const rafIdRef = useRef<number | null>(null);
 
-  // Refs dos painéis de narrativa sobreposta
+  // Refs dos painéis de narrativa sobreposta para manipulação direta de estilo
   const phase1Ref = useRef<HTMLDivElement>(null);
   const phase2Ref = useRef<HTMLDivElement>(null);
   const phase3Ref = useRef<HTMLDivElement>(null);
@@ -37,20 +27,20 @@ export const HeroCanvas: React.FC = () => {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const frameIndicatorRef = useRef<HTMLSpanElement>(null);
 
-  // Estados estruturais
+  // Estados
   const [deviceVariant, setDeviceVariant] = useState<DeviceVariant>('desktop');
-  const [isReady, setIsReady] = useState(false);
+  const [loadedCount, setLoadedCount] = useState<number>(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  // Base path seguro
+  const basePath = import.meta.env.BASE_URL && import.meta.env.BASE_URL !== './' ? import.meta.env.BASE_URL : '';
+  const cleanBase = basePath.endsWith('/') || basePath === '' ? basePath : `${basePath}/`;
 
   // Detectar variante mobile/desktop
   useEffect(() => {
     const checkVariant = () => {
       const isMobile = window.innerWidth <= 768;
-      const newVariant: DeviceVariant = isMobile ? 'mobile' : 'desktop';
-      setDeviceVariant(newVariant);
-      if (managerRef.current) {
-        managerRef.current.setVariant(newVariant);
-      }
+      setDeviceVariant(isMobile ? 'mobile' : 'desktop');
     };
 
     checkVariant();
@@ -68,22 +58,17 @@ export const HeroCanvas: React.FC = () => {
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
 
-  // Função principal de desenho no Canvas 2D
-  const renderCanvasFrame = useCallback((frameIndex: number) => {
+  // Função para desenhar uma imagem no Canvas 2D
+  const drawImageToCanvas = useCallback((img: HTMLImageElement) => {
     const canvas = canvasRef.current;
-    const manager = managerRef.current;
-    if (!canvas || !manager) return;
+    if (!canvas || !img.complete || img.naturalWidth === 0) return;
 
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    const img = manager.getFrameOrClosest(frameIndex);
-    if (!img || !img.complete || img.naturalWidth === 0) return;
-
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
 
-    // Calcular enquadramento "cover" com ponto focal no calçado
     const imgRatio = img.naturalWidth / img.naturalHeight;
     const canvasRatio = canvasWidth / canvasHeight;
 
@@ -101,10 +86,54 @@ export const HeroCanvas: React.FC = () => {
     }
 
     ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-    setIsCanvasDrawn(true);
   }, []);
 
-  // Loop de renderização suave via requestAnimationFrame
+  // Retorna a URL de um frame específico
+  const getFrameUrl = useCallback(
+    (index: number) => {
+      const folder = manifest[deviceVariant].folder;
+      const padded = String(index + 1).padStart(3, '0');
+      return `${cleanBase}${folder}/frame_${padded}.webp`;
+    },
+    [deviceVariant, cleanBase]
+  );
+
+  // Renderizar o frame atual ou o mais próximo já carregado
+  const renderFrame = useCallback(
+    (frameIndex: number) => {
+      const clamped = Math.max(0, Math.min(TOTAL_FRAMES - 1, frameIndex));
+      const cache = framesCacheRef.current;
+
+      // 1. Tentar frame exato
+      const exactImg = cache[clamped];
+      if (exactImg && exactImg.complete && exactImg.naturalWidth > 0) {
+        drawImageToCanvas(exactImg);
+        return;
+      }
+
+      // 2. Buscar o frame mais próximo já decodificado no cache
+      let closestImg: HTMLImageElement | null = null;
+      let minDiff = Infinity;
+
+      for (let i = 0; i < TOTAL_FRAMES; i++) {
+        const item = cache[i];
+        if (item && item.complete && item.naturalWidth > 0) {
+          const diff = Math.abs(i - clamped);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestImg = item;
+          }
+        }
+      }
+
+      if (closestImg) {
+        drawImageToCanvas(closestImg);
+      }
+    },
+    [drawImageToCanvas]
+  );
+
+  // Loop suave de renderização via requestAnimationFrame
   const requestRender = useCallback(() => {
     if (isRafActiveRef.current) return;
     isRafActiveRef.current = true;
@@ -115,48 +144,92 @@ export const HeroCanvas: React.FC = () => {
       const current = currentFrameRef.current;
 
       if (Math.abs(target - current) > 0.05) {
-        const next = current + (target - current) * 0.35;
+        // Interpolação suave para resposta instantânea ao scroll
+        const next = current + (target - current) * 0.45;
         currentFrameRef.current = Math.abs(target - next) < 0.05 ? target : next;
-        renderCanvasFrame(Math.round(currentFrameRef.current));
+        renderFrame(Math.round(currentFrameRef.current));
         requestRender();
       } else {
         currentFrameRef.current = target;
-        renderCanvasFrame(Math.round(target));
+        renderFrame(Math.round(target));
       }
 
+      // Atualiza o contador de frames do HUD sem re-renderizar o React
       if (frameIndicatorRef.current) {
-        const frameNum = Math.min(manifest.frameCount, Math.max(1, Math.round(currentFrameRef.current) + 1));
-        frameIndicatorRef.current.textContent = `${String(frameNum).padStart(3, '0')} / ${manifest.frameCount}`;
+        const frameNum = Math.min(TOTAL_FRAMES, Math.max(1, Math.round(currentFrameRef.current) + 1));
+        frameIndicatorRef.current.textContent = `${String(frameNum).padStart(3, '0')} / ${TOTAL_FRAMES}`;
       }
     });
-  }, [renderCanvasFrame]);
+  }, [renderFrame]);
 
-  // Inicializar FrameSequenceManager e listeners reativos
+  // Carregamento inteligente e progressivo de imagens
+  const loadSingleFrame = useCallback(
+    (index: number): Promise<HTMLImageElement> => {
+      return new Promise((resolve) => {
+        const cache = framesCacheRef.current;
+        if (cache[index]) {
+          resolve(cache[index]!);
+          return;
+        }
+
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = getFrameUrl(index);
+
+        img.onload = () => {
+          cache[index] = img;
+          setLoadedCount((prev) => prev + 1);
+
+          // Se for o frame que o usuário está visualizando agora, desenha imediatamente!
+          if (Math.abs(index - targetFrameRef.current) <= 1) {
+            renderFrame(targetFrameRef.current);
+          }
+
+          resolve(img);
+        };
+
+        img.onerror = () => {
+          resolve(img);
+        };
+      });
+    },
+    [getFrameUrl, renderFrame]
+  );
+
+  // Inicialização: carrega o primeiro frame com prioridade máxima e depois os demais em lotes
   useEffect(() => {
-    const manager = new FrameSequenceManager(manifest, deviceVariant, cleanBase);
-    managerRef.current = manager;
+    // Reset do cache se a variante mudar
+    framesCacheRef.current = new Array(TOTAL_FRAMES).fill(null);
 
-    const unsubscribeReady = manager.onReady(() => {
-      setIsReady(true);
-      requestRender();
-    });
+    let isCancelled = false;
 
-    // Quando um frame termina de carregar, se for o frame atual, força renderização imediata
-    const unsubscribeFrame = manager.onFrameLoaded((loadedIndex) => {
-      if (Math.abs(loadedIndex - targetFrameRef.current) <= 2) {
-        requestRender();
+    // 1. Carrega frame 0 imediatamente e desenha no canvas
+    loadSingleFrame(0).then((img) => {
+      if (!isCancelled && img.complete) {
+        drawImageToCanvas(img);
       }
     });
 
-    manager.startInitialLoad();
+    // 2. Carrega os primeiros 15 frames (primeira dobra de scroll)
+    const initialBatch = Array.from({ length: Math.min(18, TOTAL_FRAMES) }, (_, i) => i);
+    initialBatch.forEach((i) => loadSingleFrame(i));
+
+    // 3. Carrega os demais frames progressivamente em background
+    const loadRemaining = async () => {
+      for (let i = 18; i < TOTAL_FRAMES; i++) {
+        if (isCancelled) break;
+        await loadSingleFrame(i);
+      }
+    };
+
+    // Inicia após um pequeno delay para não travar a carga inicial da página
+    const timer = setTimeout(loadRemaining, 200);
 
     return () => {
-      unsubscribeReady();
-      unsubscribeFrame();
-      manager.destroy();
-      managerRef.current = null;
+      isCancelled = true;
+      clearTimeout(timer);
     };
-  }, [deviceVariant, cleanBase, requestRender]);
+  }, [loadSingleFrame, drawImageToCanvas]);
 
   // Ajustar dimensões do Canvas e DPI
   const resizeCanvas = useCallback(() => {
@@ -174,8 +247,8 @@ export const HeroCanvas: React.FC = () => {
       canvas.style.height = `${height}px`;
     }
 
-    renderCanvasFrame(currentFrameRef.current);
-  }, [renderCanvasFrame]);
+    renderFrame(currentFrameRef.current);
+  }, [renderFrame]);
 
   useEffect(() => {
     resizeCanvas();
@@ -240,7 +313,7 @@ export const HeroCanvas: React.FC = () => {
     }
   };
 
-  // Scroll listener de alta precisão
+  // Scroll listener de alta precisão que avança/recua os frames do vídeo
   useEffect(() => {
     const handleScroll = () => {
       const section = sectionRef.current;
@@ -253,27 +326,20 @@ export const HeroCanvas: React.FC = () => {
 
       if (scrollableDistance <= 0) return;
 
+      // Progresso 0.0 a 1.0
       const rawProgress = -rect.top / scrollableDistance;
       const progress = Math.max(0, Math.min(1, rawProgress));
 
-      const currentScrollTop = window.scrollY || document.documentElement.scrollTop;
-      const direction = currentScrollTop >= lastScrollTopRef.current ? 'forward' : 'backward';
-      lastScrollTopRef.current = currentScrollTop;
-
-      const totalFrames = manifest.frameCount;
-      const targetIndex = Math.round(progress * (totalFrames - 1));
+      // Mapeia o scroll exatamente para o índice do frame correspondente
+      const targetIndex = Math.min(TOTAL_FRAMES - 1, Math.max(0, Math.round(progress * (TOTAL_FRAMES - 1))));
       targetFrameRef.current = targetIndex;
 
-      // Sincronizar também o vídeo nativo caso esteja ativo ou em pausa de scroll
-      if (videoRef.current && playbackMode === 'scroll') {
-        const videoDuration = manifest.duration || 9.96;
-        if (!isNaN(videoRef.current.duration)) {
-          videoRef.current.currentTime = progress * videoDuration;
+      // Pré-carrega ativamente os frames ao redor do alvo
+      for (let offset = -3; offset <= 8; offset++) {
+        const nearIdx = targetIndex + offset;
+        if (nearIdx >= 0 && nearIdx < TOTAL_FRAMES) {
+          loadSingleFrame(nearIdx);
         }
-      }
-
-      if (managerRef.current) {
-        managerRef.current.preloadSurrounding(targetIndex, direction);
       }
 
       updateOverlays(progress);
@@ -289,22 +355,7 @@ export const HeroCanvas: React.FC = () => {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, [requestRender, playbackMode]);
-
-  // Alternar entre modo scroll e reprodução contínua do vídeo
-  const togglePlaybackMode = () => {
-    setPlaybackMode((prev) => {
-      const next = prev === 'scroll' ? 'loop' : 'scroll';
-      if (videoRef.current) {
-        if (next === 'loop') {
-          videoRef.current.play().catch(() => {});
-        } else {
-          videoRef.current.pause();
-        }
-      }
-      return next;
-    });
-  };
+  }, [loadSingleFrame, requestRender]);
 
   const handleScrollToNextSection = () => {
     const section = sectionRef.current;
@@ -314,95 +365,63 @@ export const HeroCanvas: React.FC = () => {
   };
 
   const posterSrc = `${cleanBase}frames/${deviceVariant}/poster.webp`;
-  const videoSrc = `${cleanBase}video.mp4`;
 
   return (
     <section
       id="experiencia"
       ref={sectionRef}
       className={styles.heroSection}
-      aria-label="Experiência interativa do Nike Air Force 1 Low QS Team Red"
+      aria-label="Experiência interativa do Nike Air Force 1 Low QS Team Red controlada pelo scroll"
     >
       <div className={styles.stickyWrapper}>
         {/* =========================================================================
-            CAMADA VISUAL DE FUNDO COM TRIPLA GARANTIA:
-            1. Poster estático imediato (milissegundo 0)
-            2. Vídeo nativo mp4 de 8 segundos com fumaça bordô
-            3. Canvas 2D nativo desenhando os 239 frames no scroll
+            CAMADA VISUAL DE FUNDO CONTROLADA PELO SCROLL:
+            - Poster estático no milissegundo 0 (garante visual instantâneo)
+            - Canvas 2D desenhando os 239 frames conforme a pessoa rola
            ========================================================================= */}
         <div className={styles.mediaContainer}>
-          {/* 1. Imagem Poster Instantânea */}
+          {/* Poster estático para tempo de montagem zero */}
           <img
             src={posterSrc}
-            alt="Cena urbana noturna do Nike Air Force 1 Low QS Team Red"
+            alt="Homem caminhando na rua noturna com o Nike Air Force 1 Low QS Team Red"
             className={styles.posterFallback}
             aria-hidden="true"
           />
 
-          {/* 2. Elemento de Vídeo Real no Fundo */}
-          <video
-            ref={videoRef}
-            className={`${styles.heroVideo} ${playbackMode === 'loop' ? styles.heroVideoActive : ''}`}
-            src={videoSrc}
-            poster={posterSrc}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            aria-hidden="true"
-          />
-
-          {/* 3. Canvas 2D Sincronizado pelo Scroll */}
+          {/* Canvas 2D que avança e volta os frames com a rolagem do usuário */}
           <canvas
             ref={canvasRef}
-            className={`${styles.heroCanvas} ${isCanvasDrawn && playbackMode === 'scroll' ? styles.heroCanvasVisible : ''}`}
+            className={styles.heroCanvas}
             aria-hidden="true"
           />
         </div>
 
-        {/* Gradientes sutis para contraste e legibilidade editorial */}
+        {/* Vinhetas e gradientes de contraste para leitura dos textos */}
         <div className={styles.vignetteTop} />
         <div className={styles.vignetteBottom} />
         <div className={styles.vignetteSides} />
 
-        {/* Barra de Progresso Cinematográfica */}
+        {/* Barra de Progresso Cinematográfica do Scroll */}
         <div className={styles.progressBarTrack} aria-hidden="true">
           <div ref={progressBarRef} className={styles.progressBarFill} />
         </div>
 
-        {/* HUD Técnico e Controles Interativos */}
+        {/* HUD Técnico com Indicador de Quadro do Scroll */}
         <div className={styles.hudOverlay}>
-          <button
-            type="button"
-            onClick={togglePlaybackMode}
-            className={styles.modeToggleBtn}
-            aria-label={`Alternar modo de visualização. Modo atual: ${playbackMode === 'scroll' ? 'Scroll Interativo' : 'Vídeo em Loop'}`}
-            title="Clique para alternar entre Scroll Interativo e Vídeo Contínuo"
-          >
-            {playbackMode === 'scroll' ? (
-              <>
-                <Sliders size={13} className={styles.modeIcon} />
-                <span>MODO SCROLL 24FPS</span>
-              </>
-            ) : (
-              <>
-                <Play size={13} className={styles.modeIcon} />
-                <span>VÍDEO EM LOOP</span>
-              </>
-            )}
-          </button>
-
           <div className={styles.hudBadge}>
-            <span className={`${styles.hudDot} ${!isReady ? styles.hudDotLoading : ''}`} />
-            <span className={styles.hudLabel}>
-              {isReady ? 'SYNC ATIVO' : 'CARREGANDO...'}
-            </span>
+            <span className={styles.hudDot} />
+            <span className={styles.hudLabel}>SCROLL-DRIVEN 24FPS</span>
           </div>
 
-          <div className={styles.hudCounter} aria-label="Contador de quadros">
-            <span ref={frameIndicatorRef}>001 / {manifest.frameCount}</span>
+          <div className={styles.hudCounter} aria-label="Quadro atual do vídeo">
+            <span ref={frameIndicatorRef}>001 / {TOTAL_FRAMES}</span>
           </div>
+
+          {loadedCount < TOTAL_FRAMES && (
+            <div className={styles.hudLoading}>
+              <span>{Math.round((loadedCount / TOTAL_FRAMES) * 100)}%</span>
+            </div>
+          )}
         </div>
 
         {/* =========================================================================
@@ -427,7 +446,7 @@ export const HeroCanvas: React.FC = () => {
             <span className={styles.scrollMouse}>
               <span className={styles.scrollWheel} />
             </span>
-            <span className={styles.scrollText}>Role para interagir com o vídeo</span>
+            <span className={styles.scrollText}>Role para avançar o vídeo</span>
           </div>
         </div>
 
